@@ -14,8 +14,10 @@ TODO
 - Load manifest from backup dir if it exists
 x Get file listing
 - Compare to manifest to decide what needs to be downloaded (based on version)
-- Download all needed - creating sanitized folder structure
-- Update and save manifest
+	- Also what needs to be deleted
+- Download all needed
+	- Create sanitized folder structure
+	- Update and save manifest
 
 - Maybe figure out if map files can be exported? .kmz files
 - Version backup in git possibly - think about total size of repo
