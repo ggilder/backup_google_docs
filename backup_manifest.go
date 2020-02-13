@@ -19,7 +19,7 @@ type BackupManifestEntry struct {
 	Name           string
 	Version        int64
 	Owner          string
-	ParentNames    []string
+	ParentNames    [][]string
 	ModifiedTime   time.Time
 	DownloadedTime time.Time
 }

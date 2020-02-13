@@ -44,7 +44,7 @@ type DriveFile struct {
 	Name         string
 	Version      int64
 	Owner        string
-	ParentNames  []string
+	ParentNames  [][]string
 	ModifiedTime time.Time
 }
 
@@ -150,15 +150,15 @@ func (d *DriveDownloader) TransformDriveFile(file *drive.File) (*DriveFile, erro
 			owner = file.Owners[0].EmailAddress
 		}
 	}
-	if len(file.Parents) > 1 {
-		return nil, fmt.Errorf("Multiple parents for file '%s'", file.Name)
-	}
-	parentNames := []string{"Unorganized"}
-	var err error
-	if len(file.Parents) == 1 {
-		parentNames, err = d.GetParentNames(file.Parents[0])
-		if err != nil {
-			return nil, err
+	parentNames := [][]string{{"Unorganized"}}
+	if len(file.Parents) > 0 {
+		parentNames = [][]string{}
+		for _, parent := range file.Parents {
+			names, err := d.getParentNames(parent)
+			if err != nil {
+				return nil, err
+			}
+			parentNames = append(parentNames, names)
 		}
 	}
 
@@ -169,10 +169,11 @@ func (d *DriveDownloader) TransformDriveFile(file *drive.File) (*DriveFile, erro
 		Owner:        owner,
 		ParentNames:  parentNames,
 		ModifiedTime: modTime,
+		MimeType:     file.MimeType,
 	}, nil
 }
 
-func (d *DriveDownloader) GetParentNames(id string) ([]string, error) {
+func (d *DriveDownloader) getParentNames(id string) ([]string, error) {
 	if cached, ok := d.cachedNames[id]; ok {
 		return cached, nil
 	}
@@ -189,7 +190,7 @@ func (d *DriveDownloader) GetParentNames(id string) ([]string, error) {
 		return []string{"Unorganized", file.Name}, nil
 	}
 
-	parentNames, err := d.GetParentNames(file.Parents[0])
+	parentNames, err := d.getParentNames(file.Parents[0])
 	if err != nil {
 		return nil, err
 	}
