@@ -16,9 +16,10 @@ TODO
 - Handle deletions since last backup
 - Parallelize - downloading can start while still listing from API - maybe make page size smaller so it can start sooner
 - Improve feedback during downloading
-
+- Output summary at end of number downloaded, skipped, deleted
 
 Maybe:
+- Copy modification times to downloaded files?
 - Maybe figure out if map files can be exported? .kmz files
 - Version backup in git possibly - think about total size of repo
 */
