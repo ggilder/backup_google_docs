@@ -15,40 +15,6 @@ import (
 
 const apiRetries int = 10
 
-type ExportType struct {
-	ExportMimeType      string
-	ExportFileExtension string
-}
-
-var exportableMimeTypes = map[string]ExportType{
-	"application/vnd.google-apps.spreadsheet": {
-		ExportMimeType:      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-		ExportFileExtension: ".xlsx",
-	},
-	"application/vnd.google-apps.document": {
-		ExportMimeType:      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-		ExportFileExtension: ".docx",
-	},
-	"application/vnd.google-apps.presentation": {
-		ExportMimeType:      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-		ExportFileExtension: ".pptx",
-	},
-	"application/vnd.google-apps.form": {
-		ExportMimeType:      "application/zip",
-		ExportFileExtension: ".zip",
-	},
-}
-
-type DriveFile struct {
-	Id           string
-	Name         string
-	Version      int64
-	Owner        string
-	ParentNames  [][]string
-	ModifiedTime time.Time
-	MimeType     string
-}
-
 type DriveDownloader struct {
 	service                *drive.Service
 	DestinationPath        string
@@ -123,12 +89,15 @@ func (d *DriveDownloader) listAll(nextPageToken string) (result *drive.FileList,
 }
 
 func (d *DriveDownloader) DownloadFile(file *DriveFile) (string, error) {
-	exportMimeType := exportableMimeTypes[file.MimeType].ExportMimeType
-	exportFileExtension := exportableMimeTypes[file.MimeType].ExportFileExtension
-	// TODO generate path with directory structure (sanitized)
-	destinationPath := filepath.Join(d.DestinationPath, file.Name+exportFileExtension)
+	downloadMimeType := file.DownloadMimeType()
+	destinationPath := filepath.Join(d.DestinationPath, file.SanitizedDownloadPath())
 
-	contentResponse, err := d.service.Files.Export(file.Id, exportMimeType).Download()
+	err := os.MkdirAll(filepath.Dir(destinationPath), 0755)
+	if err != nil {
+		return "", err
+	}
+
+	contentResponse, err := d.service.Files.Export(file.Id, downloadMimeType).Download()
 	if err != nil {
 		return "", err
 	}

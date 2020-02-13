@@ -16,7 +16,7 @@ x Get file listing
 - Compare to manifest to decide what needs to be downloaded (based on version)
 	- Also what needs to be deleted
 - Download all needed
-	- Create sanitized folder structure
+	x Create sanitized folder structure
 	- Update and save manifest
 
 - Maybe figure out if map files can be exported? .kmz files
@@ -58,7 +58,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	for i := 0; i < 10; i++ {
+	// DEBUG
+	for i := 0; i < 5; i++ {
 		path, err := downloader.DownloadFile(files[i])
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
