@@ -7,18 +7,18 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/mitchellh/go-homedir"
+
+	"google.golang.org/api/drive/v3"
 )
 
 /*
 TODO
-- Load manifest from backup dir if it exists
-x Get file listing
-- Compare to manifest to decide what needs to be downloaded (based on version)
-	- Also what needs to be deleted
-- Download all needed
-	x Create sanitized folder structure
-	- Update and save manifest
+- Handle deletions since last backup
+- Parallelize - downloading can start while still listing from API - maybe make page size smaller so it can start sooner
+- Improve feedback during downloading
 
+
+Maybe:
 - Maybe figure out if map files can be exported? .kmz files
 - Version backup in git possibly - think about total size of repo
 */
@@ -49,22 +49,35 @@ func main() {
 	}
 
 	destinationDir, _ := filepath.Abs(opts.Destination)
-	downloader := NewDriveDownloader(srv, destinationDir)
-
-	fmt.Printf("Backing up Google docs to %s\n", destinationDir)
-	files, err := downloader.ListExportableFiles()
+	err = backup(destinationDir, srv)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
+}
 
-	// DEBUG
-	for i := 0; i < 5; i++ {
-		path, err := downloader.DownloadFile(files[i])
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
-		fmt.Printf("Downloaded to %s\n", path)
+func backup(destinationDir string, srv *drive.Service) error {
+	fmt.Printf("Backing up Google docs to %s\n", destinationDir)
+
+	downloader := NewDriveDownloader(srv, destinationDir)
+
+	lastManifest, err := ReadBackupManifestFromDir(destinationDir)
+	if err != nil {
+		return err
 	}
+	if len(lastManifest.Entries) > 0 {
+		fmt.Printf("Last backup %s\n", lastManifest.Timestamp)
+	}
+
+	manifest, err := downloader.DownloadExportableFiles(lastManifest)
+	if err != nil {
+		return err
+	}
+
+	err = manifest.Write(destinationDir)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

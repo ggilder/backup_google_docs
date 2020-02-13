@@ -42,6 +42,30 @@ func NewDriveDownloader(service *drive.Service, destinationPath string) *DriveDo
 	return inst
 }
 
+func (d *DriveDownloader) DownloadExportableFiles(lastManifest *BackupManifest) (*BackupManifest, error) {
+	files, err := d.ListExportableFiles()
+	if err != nil {
+		return nil, err
+	}
+
+	manifest := NewBackupManifest()
+	for _, file := range files {
+		// TODO feedback channel here
+		if lastManifest.AlreadyDownloaded(file) {
+			fmt.Printf("Skipping %s - unchanged from last backup\n", file.SanitizedDownloadPath())
+			manifest.CopyEntry(lastManifest, file)
+			continue
+		}
+		fmt.Printf("Downloading %s\n", file.SanitizedDownloadPath())
+		relPath, err := d.DownloadFile(file)
+		if err != nil {
+			return nil, err
+		}
+		manifest.AddEntry(file, relPath)
+	}
+	return manifest, nil
+}
+
 func (d *DriveDownloader) ListExportableFiles() ([]*DriveFile, error) {
 	scannedFiles := 0
 	nextPageToken := ""
@@ -90,7 +114,8 @@ func (d *DriveDownloader) listAll(nextPageToken string) (result *drive.FileList,
 
 func (d *DriveDownloader) DownloadFile(file *DriveFile) (string, error) {
 	downloadMimeType := file.DownloadMimeType()
-	destinationPath := filepath.Join(d.DestinationPath, file.SanitizedDownloadPath())
+	destinationPathRel := file.SanitizedDownloadPath()
+	destinationPath := filepath.Join(d.DestinationPath, destinationPathRel)
 
 	err := os.MkdirAll(filepath.Dir(destinationPath), 0755)
 	if err != nil {
@@ -113,7 +138,7 @@ func (d *DriveDownloader) DownloadFile(file *DriveFile) (string, error) {
 		return "", err
 	}
 
-	return destinationPath, nil
+	return destinationPathRel, nil
 }
 
 func (d *DriveDownloader) transformDriveFile(file *drive.File) (*DriveFile, error) {
