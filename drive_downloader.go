@@ -16,25 +16,25 @@ import (
 const apiRetries int = 10
 
 type ExportType struct {
-	ExportMIMEType      string
+	ExportMimeType      string
 	ExportFileExtension string
 }
 
-var exportableMIMETypes = map[string]ExportType{
+var exportableMimeTypes = map[string]ExportType{
 	"application/vnd.google-apps.spreadsheet": {
-		ExportMIMEType:      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		ExportMimeType:      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		ExportFileExtension: ".xlsx",
 	},
 	"application/vnd.google-apps.document": {
-		ExportMIMEType:      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		ExportMimeType:      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 		ExportFileExtension: ".docx",
 	},
 	"application/vnd.google-apps.presentation": {
-		ExportMIMEType:      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+		ExportMimeType:      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 		ExportFileExtension: ".pptx",
 	},
 	"application/vnd.google-apps.form": {
-		ExportMIMEType:      "application/zip",
+		ExportMimeType:      "application/zip",
 		ExportFileExtension: ".zip",
 	},
 }
@@ -46,12 +46,13 @@ type DriveFile struct {
 	Owner        string
 	ParentNames  [][]string
 	ModifiedTime time.Time
+	MimeType     string
 }
 
 type DriveDownloader struct {
 	service                *drive.Service
 	DestinationPath        string
-	supportedMIMETypeQuery string
+	supportedMimeTypeQuery string
 	cachedNames            map[string][]string
 }
 
@@ -60,11 +61,11 @@ func NewDriveDownloader(service *drive.Service, destinationPath string) *DriveDo
 		service:         service,
 		DestinationPath: destinationPath,
 	}
-	mimeTypes := make([]string, 0, len(exportableMIMETypes))
-	for k := range exportableMIMETypes {
+	mimeTypes := make([]string, 0, len(exportableMimeTypes))
+	for k := range exportableMimeTypes {
 		mimeTypes = append(mimeTypes, k)
 	}
-	inst.supportedMIMETypeQuery = "mimeType='" + strings.Join(mimeTypes, "' or mimeType='") + "'"
+	inst.supportedMimeTypeQuery = "mimeType='" + strings.Join(mimeTypes, "' or mimeType='") + "'"
 
 	root, err := service.Files.Get("root").Do()
 	if err != nil {
@@ -75,10 +76,10 @@ func NewDriveDownloader(service *drive.Service, destinationPath string) *DriveDo
 	return inst
 }
 
-func (d *DriveDownloader) ListExportableFiles() ([]*drive.File, error) {
+func (d *DriveDownloader) ListExportableFiles() ([]*DriveFile, error) {
 	scannedFiles := 0
 	nextPageToken := ""
-	driveFiles := []*drive.File{}
+	driveFiles := []*DriveFile{}
 
 	for {
 		result, err := d.listAll(nextPageToken)
@@ -87,7 +88,13 @@ func (d *DriveDownloader) ListExportableFiles() ([]*drive.File, error) {
 		}
 
 		nextPageToken = result.NextPageToken
-		driveFiles = append(driveFiles, result.Files...)
+		for _, file := range result.Files {
+			converted, err := d.transformDriveFile(file)
+			if err != nil {
+				return nil, err
+			}
+			driveFiles = append(driveFiles, converted)
+		}
 		scannedFiles += len(result.Files)
 		// TODO feedback channel
 		fmt.Fprintf(os.Stderr, "Listing %d files\r", scannedFiles)
@@ -108,20 +115,20 @@ func (d *DriveDownloader) listAll(nextPageToken string) (result *drive.FileList,
 			PageToken(nextPageToken).
 			PageSize(1000).
 			Fields("nextPageToken, files(id, name, parents, owners, trashed, version, mimeType, modifiedTime)").
-			Q("trashed != true and " + d.supportedMIMETypeQuery).
+			Q("trashed != true and " + d.supportedMimeTypeQuery).
 			Do()
 		return err
 	}, apiRetries, time.Second*1)
 	return
 }
 
-func (d *DriveDownloader) DownloadFile(file *drive.File) (string, error) {
-	exportMIMEType := exportableMIMETypes[file.MimeType].ExportMIMEType
-	exportFileExtension := exportableMIMETypes[file.MimeType].ExportFileExtension
+func (d *DriveDownloader) DownloadFile(file *DriveFile) (string, error) {
+	exportMimeType := exportableMimeTypes[file.MimeType].ExportMimeType
+	exportFileExtension := exportableMimeTypes[file.MimeType].ExportFileExtension
 	// TODO generate path with directory structure (sanitized)
 	destinationPath := filepath.Join(d.DestinationPath, file.Name+exportFileExtension)
 
-	contentResponse, err := d.service.Files.Export(file.Id, exportMIMEType).Download()
+	contentResponse, err := d.service.Files.Export(file.Id, exportMimeType).Download()
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +147,7 @@ func (d *DriveDownloader) DownloadFile(file *drive.File) (string, error) {
 	return destinationPath, nil
 }
 
-func (d *DriveDownloader) TransformDriveFile(file *drive.File) (*DriveFile, error) {
+func (d *DriveDownloader) transformDriveFile(file *drive.File) (*DriveFile, error) {
 	modTime, _ := time.Parse(time.RFC3339, file.ModifiedTime)
 	owner := "unknown"
 	if len(file.Owners) == 1 {

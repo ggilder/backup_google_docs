@@ -12,7 +12,7 @@ import (
 /*
 TODO
 - Load manifest from backup dir if it exists
-- Get file listing
+x Get file listing
 - Compare to manifest to decide what needs to be downloaded (based on version)
 - Download all needed - creating sanitized folder structure
 - Update and save manifest
@@ -56,22 +56,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TEMP debugging info
-	for i := 0; i < 25; i++ {
-		file := files[i]
-
-		converted, err := downloader.TransformDriveFile(file)
+	for i := 0; i < 10; i++ {
+		path, err := downloader.DownloadFile(files[i])
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
 		}
-		fmt.Printf("%+v\n", converted)
+		fmt.Printf("Downloaded to %s\n", path)
 	}
-
-	path, err := downloader.DownloadFile(files[0])
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
-	}
-	fmt.Printf("Downloaded to %s\n", path)
 }
