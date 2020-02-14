@@ -14,6 +14,7 @@ import (
 /*
 TODO
 - Handle deletions since last backup
+- Handle file name collisions somehow
 - Parallelize - downloading can start while still listing from API - maybe make page size smaller so it can start sooner
 - Improve feedback during downloading
 - Output summary at end of number downloaded, skipped, deleted
