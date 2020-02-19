@@ -73,6 +73,14 @@ func backup(destinationDir string, srv *drive.Service) error {
 
 	manifest, err := downloader.DownloadExportableFiles(lastManifest)
 	if err != nil {
+		// Save partial manifest
+		if manifest != nil {
+			err2 := manifest.Write(destinationDir)
+			if err2 != nil {
+				return fmt.Errorf("%v (Unable to save partial manifest: %v)", err, err2)
+			}
+			return fmt.Errorf("%v (Saved partial manifest)", err)
+		}
 		return err
 	}
 

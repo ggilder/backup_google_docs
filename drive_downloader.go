@@ -61,7 +61,7 @@ func (d *DriveDownloader) DownloadExportableFiles(lastManifest *BackupManifest) 
 		fmt.Printf("Downloading %s\n", filePath)
 		relPath, err := d.DownloadFile(file)
 		if err != nil {
-			return nil, err
+			return manifest, err
 		}
 		manifest.AddEntry(file, relPath)
 	}
