@@ -50,13 +50,15 @@ func (d *DriveDownloader) DownloadExportableFiles(lastManifest *BackupManifest) 
 
 	manifest := NewBackupManifest()
 	for _, file := range files {
+		filePath := file.SanitizedDownloadPath()
 		// TODO feedback channel here
 		if lastManifest.AlreadyDownloaded(file) {
-			fmt.Printf("Skipping %s - unchanged from last backup\n", file.SanitizedDownloadPath())
+			fmt.Printf("Skipping %s - unchanged from last backup\n", filePath)
 			manifest.CopyEntry(lastManifest, file)
 			continue
 		}
-		fmt.Printf("Downloading %s\n", file.SanitizedDownloadPath())
+		// Download/export
+		fmt.Printf("Downloading %s\n", filePath)
 		relPath, err := d.DownloadFile(file)
 		if err != nil {
 			return nil, err
