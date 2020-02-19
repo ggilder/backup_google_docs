@@ -117,7 +117,7 @@ func (d *DriveDownloader) listAll(nextPageToken string) (result *drive.FileList,
 
 func (d *DriveDownloader) DownloadFile(file *DriveFile) (string, error) {
 	downloadMimeType := file.DownloadMimeType()
-	destinationPathRel := file.SanitizedDownloadPath()
+	destinationPathRel := d.uniquePath(file.SanitizedDownloadPath())
 	destinationPath := filepath.Join(d.DestinationPath, destinationPathRel)
 
 	err := os.MkdirAll(filepath.Dir(destinationPath), 0755)
@@ -147,6 +147,25 @@ func (d *DriveDownloader) DownloadFile(file *DriveFile) (string, error) {
 	}
 
 	return destinationPathRel, nil
+}
+
+func (d *DriveDownloader) uniquePath(originalPath string) string {
+	ext := filepath.Ext(originalPath)
+	base := strings.TrimSuffix(originalPath, ext)
+	destinationPathRel := originalPath
+	destinationPath := filepath.Join(d.DestinationPath, destinationPathRel)
+	index := 1
+	for {
+		// Find unique download path - check for collision
+		if _, err := os.Stat(destinationPath); err == nil {
+			// bump name and try again
+			destinationPathRel = fmt.Sprintf("%s (%d)%s", base, index, ext)
+			destinationPath = filepath.Join(d.DestinationPath, destinationPathRel)
+			index++
+		} else {
+			return destinationPathRel
+		}
+	}
 }
 
 func (d *DriveDownloader) transformDriveFile(file *drive.File) (*DriveFile, error) {
