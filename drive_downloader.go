@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -124,7 +125,12 @@ func (d *DriveDownloader) DownloadFile(file *DriveFile) (string, error) {
 		return "", err
 	}
 
-	contentResponse, err := d.service.Files.Export(file.Id, downloadMimeType).Download()
+	var contentResponse *http.Response
+	err = retry.Do(func() error {
+		contentResponse, err = d.service.Files.Export(file.Id, downloadMimeType).Download()
+		return err
+	}, apiRetries, time.Second*1)
+
 	if err != nil {
 		return "", err
 	}
@@ -181,7 +187,12 @@ func (d *DriveDownloader) getParentNames(id string) ([]string, error) {
 		return cached, nil
 	}
 
-	file, err := d.service.Files.Get(id).Fields("id, name, parents, trashed").Do()
+	var file *drive.File
+	var err error
+	err = retry.Do(func() error {
+		file, err = d.service.Files.Get(id).Fields("id, name, parents, trashed").Do()
+		return err
+	}, apiRetries, time.Second*1)
 	if err != nil {
 		return nil, err
 	}
